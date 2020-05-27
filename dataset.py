@@ -3,6 +3,7 @@ import json
 from torch.utils.data import Dataset
 
 
+
 class MedicalExtractionDataset(Dataset):
 
     def __init__(self, data_path):
