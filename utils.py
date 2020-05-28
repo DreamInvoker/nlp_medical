@@ -12,6 +12,7 @@ def get_cuda(tensor):
 def logging(s):
     print(datetime.now(), s)
 
+
 def print_params(model):
     print('total parameters:', sum([np.prod(list(p.size())) for p in model.parameters() if p.requires_grad]))
 

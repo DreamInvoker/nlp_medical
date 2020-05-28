@@ -27,4 +27,6 @@ def get_opt():
     parser.add_argument('--log_step', type=int, default=50)  # 记录日志的间隔, 以batch为单位
     parser.add_argument('--save_model_freq', type=int, default=1)  # 保存模型间隔，以epoch为单位
 
+    # 模型的一些settings
+
     return parser.parse_args()
