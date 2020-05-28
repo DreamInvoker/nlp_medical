@@ -40,3 +40,5 @@ class MedicalExtractionDataset(Dataset):
                 else:
                     pass
 
+    def text_process(self):
+        pass
