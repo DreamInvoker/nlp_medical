@@ -1,22 +1,21 @@
 import json
-import os
+import time
 
-from config import *
-
-from dataset_zs import MedicalExtractionDatasetForSubjectAndBody
-from model import MedicalExtractionModel
 import torch
-from torch import optim
 from torch import nn
+from torch import optim
 from torch.utils.data import DataLoader
 
+from config import *
+from dataset_zs import MedicalExtractionDatasetForSubjectAndBody
+from model import MedicalExtractionModel
 from utils import get_cuda, logging, print_params
-import time
 
 
 def train(opt):
     train_ds = MedicalExtractionDatasetForSubjectAndBody(opt.train_data)
     dev_ds = MedicalExtractionDatasetForSubjectAndBody(opt.dev_data)
+    # test_ds = MedicalExtractionDatasetForSubjectAndBody(opt.test_data)
 
     dev_dl = DataLoader(dev_ds,
                         batch_size=opt.dev_batch_size,
@@ -64,7 +63,7 @@ def train(opt):
         train_dl = DataLoader(train_ds,
                               batch_size=opt.batch_size,
                               shuffle=True,
-                              num_workers=8
+                              num_workers=1
                               )
         model.train()
         for batch in train_dl:
@@ -88,7 +87,7 @@ def train(opt):
                 elapsed = time.time() - start_time
                 logging(
                     '| epoch {:2d} | step {:4d} |  ms/b {:5.2f} | train loss {:5.3f} '.format(
-                        epoch, global_step, elapsed * 1000 / log_step, cur_loss*1000))
+                        epoch, global_step, elapsed * 1000 / log_step, cur_loss * 1000))
                 total_loss = 0
                 start_time = time.time()
 

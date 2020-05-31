@@ -1,6 +1,8 @@
 import argparse
 import os
+
 import tokenizers
+
 data_dir = './data/'
 
 
@@ -8,9 +10,10 @@ class PLMConfig:
     MODEL_PATH = './PLM/bert-base-chinese'
     VOCAB_PATH = './PLM/bert-base-chinese/vocab.txt'
     tokenizer = tokenizers.BertWordPieceTokenizer(
-            vocab_file=f'{VOCAB_PATH}',
-            lowercase=True
-        )
+        vocab_file=f'{VOCAB_PATH}',
+        lowercase=True
+    )
+
 
 def get_opt():
     parser = argparse.ArgumentParser()
@@ -32,7 +35,7 @@ def get_opt():
     parser.add_argument('--dev_batch_size', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--test_epoch', type=int, default=1)
-    parser.add_argument('--log_step', type=int, default=50)  # 记录日志的间隔, 以batch为单位
+    parser.add_argument('--log_step', type=int, default=1)  # 记录日志的间隔, 以batch为单位
     parser.add_argument('--save_model_freq', type=int, default=1)  # 保存模型间隔，以epoch为单位
 
     # 模型的一些settings

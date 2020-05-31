@@ -63,7 +63,6 @@ def text_process(text_contains_entities):
 
 
 def process_sym_attr(raw_text, attr):
-
     attr_dict = {}
     for k in attr:
         success = True
@@ -106,13 +105,9 @@ def process_sym_attr(raw_text, attr):
                 #     k_list[start] = 'S'
         attr_dict[k] = k_list
         # if not success:
-            # print(text)
-            # print('-' * 20)
-            # print(filtered_text)
-            # print('symtom:', symptom)
-            # print('{}:{}'.format(k, success))
+        # print(text)
+        # print('-' * 20)
+        # print(filtered_text)
+        # print('symtom:', symptom)
+        # print('{}:{}'.format(k, success))
     return attr_dict
-
-
-
-

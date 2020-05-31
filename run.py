@@ -1,16 +1,15 @@
 import json
 import os
+import time
 
-from config import get_opt
-
-from dataset import MedicalExtractionDataset
-from model import MedicalExtractionModel
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
+from config import get_opt
+from dataset import MedicalExtractionDataset
+from model import MedicalExtractionModel
 from utils import get_cuda, logging, print_params
-import time
 
 
 def train(opt):
@@ -86,7 +85,7 @@ def train(opt):
                 elapsed = time.time() - start_time
                 logging(
                     '| epoch {:2d} | step {:4d} |  ms/b {:5.2f} | train loss {:5.3f} '.format(
-                        epoch, global_step, elapsed * 1000 / log_step, cur_loss*1000))
+                        epoch, global_step, elapsed * 1000 / log_step, cur_loss * 1000))
                 total_loss = 0
                 start_time = time.time()
 

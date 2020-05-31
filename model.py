@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import torch.nn as nn
-from transformers import BertModel, BertConfig, BertTokenizer
+from transformers import BertModel, BertConfig
+
 from config import PLMConfig
+
 
 # TODO 减少hard code，将模型配置放在一起
 
@@ -39,5 +41,4 @@ class MedicalExtractionModel(nn.Module):
         # body_start_logits = body_start_logits.squeeze(-1)
         # body_end_logits = body_start_logits.squeeze(-1)
 
-        return subject_logits, body_logits#, subject_start_logits, subject_end_logits, body_start_logits, body_end_logits
-
+        return subject_logits, body_logits  # , subject_start_logits, subject_end_logits, body_start_logits, body_end_logits

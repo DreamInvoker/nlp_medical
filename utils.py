@@ -1,7 +1,7 @@
-import torch
-import numpy as np
-
 from datetime import datetime
+
+import numpy as np
+import torch
 
 
 def get_cuda(tensor):
@@ -16,4 +16,3 @@ def logging(s):
 
 def print_params(model):
     print('total parameters:', sum([np.prod(list(p.size())) for p in model.parameters() if p.requires_grad]))
-

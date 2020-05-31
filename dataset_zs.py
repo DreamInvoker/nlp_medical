@@ -1,9 +1,11 @@
 import json
+
 import torch
 from torch.utils.data import Dataset
+
+from config import PLMConfig
 from preprocess import text_process, process_sym_attr
 from utils import get_cuda
-from config import PLMConfig
 
 
 class MedicalExtractionDatasetForSubjectAndBody(Dataset):
@@ -17,6 +19,7 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         self.data = []
         for idx in range(len(self.raw_data)):
             self.pre_process(idx)
+        print(f'{data_path} has {len(self.data)} symptoms.')
         # TODO TypeError: can't pickle Tokenizer objects
         # self.tokenizer = PLMConfig.tokenizer
         self.max_len = max_len
@@ -105,6 +108,8 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
                 continue
             symptom_name = None
             symptom_pos = attribute_dict['self']['pos']
+            if len(symptom_pos) == 0:
+                continue
             try:
                 symptom_name = symtom_name.split(': ')[1]
             except:
@@ -117,6 +122,3 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
                 'attr_dict': attr_processed_dict,
                 'symptom_pos': symptom_pos
             })
-
-
-
