@@ -1,10 +1,19 @@
 # statistic
 
-| data      | number     | percentage     |
-| ---------- | :-----------:  | :-----------: |
-| train     | 4227     | 78.7%     |
-| dev     | 318     | 5.9%     |
-| test     | 824     | 15.3%     |
+| data      | number     | percentage     | total feature
+| ---------- | :-----------:  | :-----------: | :-----------: |
+| train     | 4227     | 78.7%     | -     |
+| dev     | 318     | 5.9%     | -     |
+| test     | 824     | 15.3%     | -     |
+
+# manually process attributes
+
+| data      | number    | pos number | percentage     | is solved |
+| ---------- | :-----------:  | :-----------:  | :-----------: | :-----------: |
+| train     | 472     | 148|  -  | no |
+| dev     | 27     |  0|  -  | yes
+| test     | 186     |  85 | -    | no |
+
 
 # format
 ```
