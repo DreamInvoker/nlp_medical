@@ -48,7 +48,7 @@ def train(opt):
 
     model = get_cuda(model)
 
-    # TODO 如果用Bert可以改成AdamW
+    # TODO 可以改成AdamW
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     criterion = nn.BCEWithLogitsLoss()
@@ -57,8 +57,6 @@ def train(opt):
     if not os.path.exists(checkpoint_dir):
         os.mkdir(checkpoint_dir)
 
-    # training process
-    # 1.
     global_step = 0
     total_loss = 0
     for epoch in range(start_epoch, total_epochs + 1):
@@ -80,7 +78,6 @@ def train(opt):
                 token_type_ids=batch['token_type_ids']
             )
             loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
-
             loss.backward()
             optimizer.step()
 
@@ -108,7 +105,7 @@ def train(opt):
                         token_type_ids=batch['token_type_ids']
                     )
                     loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
-                    print(loss.item())
+                    logging('val loss: {}'.format(loss.item()))
 
         # save model
         # TODO 可以改成只save在dev上最佳的模型

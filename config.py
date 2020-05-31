@@ -1,8 +1,16 @@
 import argparse
 import os
-
+import tokenizers
 data_dir = './data/'
 
+
+class PLMConfig:
+    MODEL_PATH = './PLM/bert-base-chinese'
+    VOCAB_PATH = './PLM/bert-base-chinese/vocab.txt'
+    tokenizer = tokenizers.BertWordPieceTokenizer(
+            vocab_file=f'{VOCAB_PATH}',
+            lowercase=True
+        )
 
 def get_opt():
     parser = argparse.ArgumentParser()
@@ -20,7 +28,7 @@ def get_opt():
     # 训练相关
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--weight_decay', type=float, default=0.0001)
-    parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--batch_size', type=int, default=2)
     parser.add_argument('--dev_batch_size', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--test_epoch', type=int, default=1)

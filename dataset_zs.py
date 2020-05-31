@@ -1,14 +1,14 @@
 import json
-import tokenizers
 import torch
 from torch.utils.data import Dataset
 from preprocess import text_process, process_sym_attr
 from utils import get_cuda
+from config import PLMConfig
 
 
 class MedicalExtractionDatasetForSubjectAndBody(Dataset):
 
-    def __init__(self, data_path, max_len=60, side_span=20):
+    def __init__(self, data_path, max_len=80, side_span=20):
         super(MedicalExtractionDatasetForSubjectAndBody, self).__init__()
         self.data_path = data_path
         self.raw_data = None
@@ -17,10 +17,8 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         self.data = []
         for idx in range(len(self.raw_data)):
             self.pre_process(idx)
-        self.tokenizer = tokenizers.BertWordPieceTokenizer(
-            vocab_file='./PLM/bert-base-chinese/vocab.txt',
-            lowercase=True
-        )
+        # TODO TypeError: can't pickle Tokenizer objects
+        # self.tokenizer = PLMConfig.tokenizer
         self.max_len = max_len
         self.side_span = side_span
 
@@ -29,13 +27,13 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         raw_text = example['raw_text']
         symptom_name = example['symptom_name']
         attr_dict = example['attr_dict']
+        symptom_pos = example['symptom_pos']
 
         subject = attr_dict['subject']
         body = attr_dict['body']
-        symptom_pos = attr_dict['self']['pos']
         span_bound = max(0, symptom_pos[0] - self.side_span), min(symptom_pos[1] + self.side_span, len(raw_text))
         text_span = raw_text[span_bound[0]:span_bound[1] + 1]
-        text_token = self.tokenizer.encode(text_span)
+        text_token = PLMConfig.tokenizer.encode(text_span)
         text_ids = text_token.ids[1:-1]
         text_offsets = text_token.offsets[1:-1]
         subject_target_span = subject[span_bound[0]:span_bound[1] + 1]
@@ -58,7 +56,7 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         # tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
         # sym_tokens = tokenizer.encode(symptom_name)
 
-        symptom_tokens = self.tokenizer.encode(symptom_name)
+        symptom_tokens = PLMConfig.tokenizer.encode(symptom_name)
         symptom_ids = symptom_tokens.ids[1:-1]
 
         input_ids = [101] + symptom_ids + [102] + text_ids + [102]
@@ -68,7 +66,7 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         subject_target_ids = [0] * (len(symptom_ids) + 2) + subject_target_ids + [0]
         body_target_ids = [0] * (len(symptom_ids) + 2) + body_target_ids + [0]
 
-        padding_length = 60 - len(input_ids)
+        padding_length = self.max_len - len(input_ids)
         if padding_length > 0:
             input_ids = input_ids + ([0] * padding_length)
             mask = mask + ([0] * padding_length)
@@ -106,7 +104,7 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
             if attribute_dict['has_problem']:
                 continue
             symptom_name = None
-            symtom_pos = None
+            symptom_pos = attribute_dict['self']['pos']
             try:
                 symptom_name = symtom_name.split(': ')[1]
             except:
@@ -116,7 +114,8 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
             self.data.append({
                 'raw_text': raw_text,
                 'symptom_name': symptom_name,
-                'attr_dict': attr_processed_dict
+                'attr_dict': attr_processed_dict,
+                'symptom_pos': symptom_pos
             })
 
 
