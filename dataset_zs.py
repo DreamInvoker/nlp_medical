@@ -10,7 +10,7 @@ from utils import get_cuda
 
 class MedicalExtractionDatasetForSubjectAndBody(Dataset):
 
-    def __init__(self, data_path, max_len=80, side_span=20):
+    def __init__(self, data_path, max_len=512, side_span=20):
         super(MedicalExtractionDatasetForSubjectAndBody, self).__init__()
         self.data_path = data_path
         self.raw_data = None
