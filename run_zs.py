@@ -6,13 +6,15 @@ from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 from config import *
 from dataset_zs import MedicalExtractionDatasetForSubjectAndBody
 from model import MedicalExtractionModel
 from utils import get_cuda, logging, print_params, EarlyStopping
 
-# TODO 监控验证集上的评价指标比如F1或者jaccard score
 
+# TODO 监控验证集上的评价指标比如F1或者jaccard score
+# TODO 加入warm up
 
 def train(opt):
     train_ds = MedicalExtractionDatasetForSubjectAndBody(opt.train_data)
