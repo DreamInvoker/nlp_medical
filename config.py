@@ -8,7 +8,7 @@ data_dir = './data/'
 
 class PLMConfig:
     MODEL_PATH = './PLM/bert-base-chinese'
-    VOCAB_PATH = './PLM/bert-base-chinese/vocab.txt'
+    VOCAB_PATH = f'{MODEL_PATH}/vocab.txt'
     tokenizer = tokenizers.BertWordPieceTokenizer(
         vocab_file=f'{VOCAB_PATH}',
         lowercase=True

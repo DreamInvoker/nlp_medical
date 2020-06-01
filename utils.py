@@ -1,8 +1,9 @@
-from datetime import datetime
+import os
 import random
+from datetime import datetime
+
 import numpy as np
 import torch
-import os
 
 
 def seed_everything(seed_value):
