@@ -10,7 +10,7 @@ from tqdm import tqdm
 from config import *
 from dataset_zs import MedicalExtractionDatasetForSubjectAndBody
 from model import MedicalExtractionModel
-from utils import get_cuda, logging, print_params, EarlyStopping
+from utils import get_cuda, logging, print_params, EarlyStopping, seed_everything
 
 
 # TODO 监控验证集上的评价指标比如F1或者jaccard score
@@ -24,7 +24,7 @@ def train(opt):
     dev_dl = DataLoader(dev_ds,
                         batch_size=opt.dev_batch_size,
                         shuffle=False,
-                        num_workers=1
+                        num_workers=16
                         )
 
     model = MedicalExtractionModel(opt)
@@ -34,7 +34,6 @@ def train(opt):
     start_epoch = 1
     learning_rate = opt.lr
     total_epochs = opt.epochs
-    log_step = opt.log_step
     pretrain_model = opt.pretrain_model
     model_name = opt.model_name  # 要保存的模型名字
 
@@ -60,19 +59,19 @@ def train(opt):
     if not os.path.exists(checkpoint_dir):
         os.mkdir(checkpoint_dir)
 
-    global_step = 0
-    total_loss = 0
     es = EarlyStopping(patience=5, mode="min", criterion='val loss')
     for epoch in range(start_epoch, total_epochs + 1):
-        start_time = time.time()
+        train_loss = 0.0
+        val_loss = 0.0
+
         train_dl = DataLoader(train_ds,
                               batch_size=opt.batch_size,
                               shuffle=True,
                               num_workers=1
                               )
         model.train()
-        tk0 = tqdm(train_dl, total=len(train_dl))
-        for batch in tk0:
+        tk_train = tqdm(train_dl, total=len(train_dl))
+        for batch in tk_train:
             optimizer.zero_grad()
             subject_target_ids = batch['subject_target_ids']
             body_target_ids = batch['body_target_ids']
@@ -85,27 +84,17 @@ def train(opt):
             loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
             loss.backward()
             optimizer.step()
-            tk0.set_postfix(train_loss='{:5.3f} / 1000'.format(1000 * loss.item()),
-                            epoch='{:2d}'.format(epoch),
-                            )
-            '''
-            global_step += 1
-            total_loss += loss.item()
-            if global_step % log_step == 0:
-                cur_loss = total_loss / log_step
-                elapsed = time.time() - start_time
-                logging(
-                    '| epoch {:2d} | step {:4d} |  ms/b {:5.2f} | train loss (x1000) {:5.3f} '.format(
-                        epoch, global_step, elapsed * 1000 / log_step, cur_loss * 1000))
-                total_loss = 0
-                start_time = time.time()
-            '''
+            tk_train.set_postfix(train_loss='{:5.3f} / 1000'.format(1000 * loss.item()),
+                                 epoch='{:2d}'.format(epoch))
+            train_loss += loss.item() * subject_target_ids.shape[0]
+
         # TODO 如果eval时间太久，可能不太需要每个epoch都验证一次
         # if epoch % opt.test_epoch == 0:
         model.eval()
-        val_loss = 0.0
+
         with torch.no_grad():
-            for batch in dev_dl:
+            tk_val = tqdm(dev_dl, total=len(dev_dl))
+            for batch in tk_val:
                 subject_target_ids = batch['subject_target_ids']
                 body_target_ids = batch['body_target_ids']
 
@@ -115,8 +104,14 @@ def train(opt):
                     token_type_ids=batch['token_type_ids']
                 )
                 loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
+                tk_val.set_postfix(val_loss='{:5.3f} / 1000'.format(1000 * loss.item()),
+                                   epoch='{:2d}'.format(epoch))
                 val_loss += loss.item() * subject_target_ids.shape[0]
+
+        avg_train_loss = train_loss * 1000 / len(train_ds)
         avg_val_loss = val_loss * 1000 / len(dev_ds)
+
+        logging('train loss per example: {:5.3f} / 1000'.format(avg_train_loss))
         logging('val loss per example: {:5.3f} / 1000'.format(avg_val_loss))
 
         # 保留最佳模型方便evaluation
@@ -147,4 +142,6 @@ if __name__ == '__main__':
     print('prarent processId:', os.getppid())
     opt = get_opt()
     print(json.dumps(opt.__dict__, indent=4))
+
+    seed_everything(19960122)
     train(opt)

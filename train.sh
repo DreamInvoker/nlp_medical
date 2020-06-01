@@ -9,7 +9,6 @@ nohup python -u train_zs.py \
 --lr ${lr} \
 --batch_size ${batch_size} \
 --epochs ${epochs} \
---log_step 50 \
 --save_model_freq ${save_model_freq} \
 >> logs/train_${model_name}.log \
 2>&1 &
