@@ -138,6 +138,10 @@ def get_entity(text_contains_entities):
     while idx < len(text_contains_entities):
         if text_contains_entities[idx]=='[':
             if stack==[]:
+                #处理[]sym
+                if text_contains_entities[idx+1] == ']':
+                    idx+=5
+                    continue
                 number_idx = idx+1
                 while is_number(text_contains_entities[number_idx]):
                     number_idx+=1
@@ -196,3 +200,9 @@ def get_entity_anno(text_contains_entities,raw_text_length):
         entity_list_dic[k]=array
 
     return entity_annolist_dic
+
+if __name__ == '__main__':
+    text ='[0幽门肥厚性狭窄6]dis （ [8hypertrophicpyloricstenosis34]dis ， []dis ）是因 [42[幽门环状括约肌]bod 增厚50]sym [51[幽门管]bod 延长55]sym [56正常结构消失61]sym ，导致 [65[胃出口]bod 部梗阻70]sym [71[胃]bod 代偿性扩张 、 肥厚和蠕动加快84]sym [85[幽门平滑肌细胞]bod 肥大 ， 而非增生98]sym [99幽门肥厚性狭窄105]dis 的临床及病理表现，认为该病是一种先天性疾病。 胃空肠吻合术是当时经典的治疗方法，死亡率高达60%。 黏膜外幽门成形术是另一种术式，但因为缝合易撕裂水肿的 [180肌肉181]bod ，导致 [185大出血187]dis ，疗效也不理想。自从1911年Ramstedt首次放弃 缝合肌肉后， 幽门环肌切开术成为标准术式。'
+    print(text)
+    entity_dic = get_entity(text)
+    print(entity_dic)
