@@ -62,6 +62,7 @@ def text_process(text_contains_entities):
     return raw_text
 
 
+
 def process_sym_attr(raw_text, attr):
     attr_dict = {}
     for k in attr:
