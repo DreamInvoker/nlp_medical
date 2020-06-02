@@ -23,6 +23,9 @@ def get_opt():
     parser.add_argument('--dev_data', type=str, default=os.path.join(data_dir, 'dev.txt'))
     parser.add_argument('--test_data', type=str, default=os.path.join(data_dir, 'test.txt'))
 
+    #
+    parser.add_argument('--dropout', type=float, default=0.5)
+
     # 保存模型和加载模型相关
     parser.add_argument('--checkpoint_dir', type=str, default='checkpoints')
     parser.add_argument('--model_name', type=str, default='train_model')

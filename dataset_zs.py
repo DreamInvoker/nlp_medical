@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 
 from config import PLMConfig
-from preprocess import text_process, process_sym_attr
+from preprocess import text_process, process_sym_attr, get_entity
 from utils import get_cuda
 
 
@@ -105,6 +105,7 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         symptoms = item['symptom']
         assert isinstance(symptoms, dict), 'dataset error: {}, index: {}'.format(self.data_path, index)
         raw_text = text_process(text)
+        # entity_dict = get_entity(text_contains_entities=text)
         for symtom_name, attribute_dict in symptoms.items():
             if attribute_dict['has_problem']:
                 continue

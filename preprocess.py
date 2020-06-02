@@ -196,6 +196,6 @@ def get_entity_anno(text_contains_entities, raw_text_length):
         array = [0] * raw_text_length
         for span in entity_dic[k]:
             array[span[0]:span[1] + 1] = [1] * (span[1] - span[0] + 1)
-        entity_list_dic[k] = array
+        entity_annolist_dic[k] = array
 
     return entity_annolist_dic

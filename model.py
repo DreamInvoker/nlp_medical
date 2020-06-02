@@ -13,7 +13,7 @@ class MedicalExtractionModel(nn.Module):
         # TODO 手动导入不成功，咋回事
         config = BertConfig(PLMConfig.MODEL_PATH + "/config.json")
         self.encoder = BertModel.from_pretrained(PLMConfig.MODEL_PATH)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(opt.dropout)
         self.subject_fc = nn.Linear(768, 1)
         self.body_fc = nn.Linear(768, 1)
 

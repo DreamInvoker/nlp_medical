@@ -148,6 +148,7 @@ def train(opt):
                 token_type_ids=batch['token_type_ids']
             )
             loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
+
             loss.backward()
             optimizer.step()
             scheduler.step()
@@ -182,8 +183,7 @@ def train(opt):
     chkpt = torch.load(best_model_path, map_location=torch.device('cpu'))
     model.load_state_dict(chkpt['checkpoints'])
     logging('load best model from {} and test ...'.format(best_model_path))
-    avg_test_loss = test(model, test_ds, test_dl, criterion, threshold, 'test')
-    print('test loss: {}'.format(avg_test_loss))
+    test(model, test_ds, test_dl, criterion, threshold, 'test')
 
 
 if __name__ == '__main__':
