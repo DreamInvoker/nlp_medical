@@ -56,11 +56,11 @@ class EarlyStopping:
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(epoch_score, model, model_path)
+            self.save_checkpoint(epoch_score, model, model_path, epoch, learning_rate)
         elif score < self.best_score + self.delta:
             if score > self.best_score:
                 self.best_score = score
-                self.save_checkpoint(epoch_score, model, model_path)
+                self.save_checkpoint(epoch_score, model, model_path, epoch, learning_rate)
             self.counter += 1
             print('EarlyStopping counter: {} out of {}'.format(self.counter, self.patience))
             if self.counter >= self.patience:
@@ -70,7 +70,7 @@ class EarlyStopping:
             self.save_checkpoint(epoch_score, model, model_path, epoch, learning_rate)
             self.counter = 0
 
-    def save_checkpoint(self, epoch_score, model, model_path, epoch, learning_rate):
+    def save_checkpoint(self, epoch_score, model, model_path, epoch=None, learning_rate=None):
         if epoch_score not in [-np.inf, np.inf, -np.nan, np.nan]:
             print('{} improved ({} --> {}). Saving model!'.format(
                 self.criterion, self.val_score, epoch_score))

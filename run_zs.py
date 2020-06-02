@@ -5,25 +5,40 @@ from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+from transformers import get_linear_schedule_with_warmup
 from config import *
 from dataset_zs import MedicalExtractionDatasetForSubjectAndBody
 from model import MedicalExtractionModel
 from utils import get_cuda, logging, print_params, EarlyStopping, seed_everything
+from evaluate import Metrics
 
+def print_eval(metrics_list, batch_size_list, attr_type):
+    avg_p, avg_r, avg_f1, avg_jac = 0.0, 0.0, 0.0, 0.0
+    count = 0
+    for (p, r, f1, jac), bsz in zip(metrics_list, batch_size_list):
+        avg_p += p * bsz
+        avg_r += r * bsz
+        avg_f1 += f1 * bsz
+        avg_jac += jac * bsz
+        count += bsz
+    avg_p, avg_r, avg_f1, avg_jac = avg_p / count, avg_r / count, avg_f1 / count, avg_jac / count
 
-# TODO 监控验证集上的评价指标比如F1或者jaccard score
-# TODO 加入warm up
+    print('{}\tP: {:.3f}\tR: {:.3f}\tF1: {:.3f}\tJaccard: {:.3f}'.format(attr_type, avg_p, avg_r, avg_f1, avg_jac))
 
 def train(opt):
     train_ds = MedicalExtractionDatasetForSubjectAndBody(opt.train_data)
     dev_ds = MedicalExtractionDatasetForSubjectAndBody(opt.dev_data)
     # test_ds = MedicalExtractionDatasetForSubjectAndBody(opt.test_data)
 
+    train_dl = DataLoader(train_ds,
+                          batch_size=opt.batch_size,
+                          shuffle=True,
+                          num_workers=opt.num_worker
+                          )
     dev_dl = DataLoader(dev_ds,
                         batch_size=opt.dev_batch_size,
                         shuffle=False,
-                        num_workers=16
+                        num_workers=opt.num_worker
                         )
 
     model = MedicalExtractionModel(opt)
@@ -49,9 +64,22 @@ def train(opt):
 
     model = get_cuda(model)
 
-    # TODO 可以改成AdamW
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    num_train_steps = int(len(train_ds) / opt.batch_size * opt.epochs)
+    param_optimizer = list(model.named_parameters())
+    no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
+    optimizer_parameters = [
+        {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.001},
+        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
+    ]
 
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.AdamW(optimizer_parameters, lr=learning_rate)
+    # scheduler = get_linear_schedule_with_warmup(
+    #     optimizer,
+    #     num_warmup_steps=opt.num_warmup_steps,
+    #     num_training_steps=num_train_steps
+    # )
+    threshold = opt.threshold
     criterion = nn.BCEWithLogitsLoss()
 
     checkpoint_dir = opt.checkpoint_dir
@@ -63,11 +91,7 @@ def train(opt):
         train_loss = 0.0
         val_loss = 0.0
 
-        train_dl = DataLoader(train_ds,
-                              batch_size=opt.batch_size,
-                              shuffle=True,
-                              num_workers=1
-                              )
+
         model.train()
         tk_train = tqdm(train_dl, total=len(train_dl))
         for batch in tk_train:
@@ -83,19 +107,25 @@ def train(opt):
             loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
             loss.backward()
             optimizer.step()
+            # scheduler.step()
+
             tk_train.set_postfix(train_loss='{:5.3f} / 1000'.format(1000 * loss.item()),
                                  epoch='{:2d}'.format(epoch))
             train_loss += loss.item() * subject_target_ids.shape[0]
 
-        # TODO 如果eval时间太久，可能不太需要每个epoch都验证一次
-        # if epoch % opt.test_epoch == 0:
-        model.eval()
+        avg_train_loss = train_loss * 1000 / len(train_ds)
+        print('train loss per example: {:5.3f} / 1000'.format(avg_train_loss))
 
+        model.eval()
         with torch.no_grad():
+            subject_metrics_list = []
+            body_metrics_list = []
+            batch_size_list = []
             tk_val = tqdm(dev_dl, total=len(dev_dl))
             for batch in tk_val:
                 subject_target_ids = batch['subject_target_ids']
                 body_target_ids = batch['body_target_ids']
+                batch_size = subject_target_ids.shape[0]
 
                 subject_logits, body_logits = model(
                     input_ids=batch['input_ids'],
@@ -103,15 +133,23 @@ def train(opt):
                     token_type_ids=batch['token_type_ids']
                 )
                 loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
-                tk_val.set_postfix(val_loss='{:5.3f} / 1000'.format(1000 * loss.item()),
-                                   epoch='{:2d}'.format(epoch))
-                val_loss += loss.item() * subject_target_ids.shape[0]
+                val_loss += loss.item() * batch_size
 
-        avg_train_loss = train_loss * 1000 / len(train_ds)
-        avg_val_loss = val_loss * 1000 / len(dev_ds)
+                # TODO 暂时对于body和subject用统一的thresh
+                subject_metrics_list.append(Metrics(subject_logits, subject_target_ids, threshold=threshold))
+                body_metrics_list.append(Metrics(body_logits, body_target_ids, threshold=threshold))
+                batch_size_list.append(batch_size)
 
-        logging('train loss per example: {:5.3f} / 1000'.format(avg_train_loss))
-        logging('val loss per example: {:5.3f} / 1000'.format(avg_val_loss))
+                tk_val.set_postfix({
+                    'val_loss': '{:5.3f} / 1000'.format(1000 * loss.item()),
+                    'epoch': '{:2d}'.format(epoch),
+                })
+
+            avg_val_loss = val_loss * 1000 / len(dev_ds)
+            print('val loss per example: {:5.3f} / 1000'.format(avg_val_loss))
+
+            print_eval(subject_metrics_list, batch_size_list, 'subject')
+            print_eval(body_metrics_list, batch_size_list, 'body')
 
         # 保留最佳模型方便evaluation
         save_model_path = os.path.join(checkpoint_dir, model_name + '_best.pt'.format(epoch))

@@ -5,7 +5,7 @@ from sklearn import metrics
 def Metrics(pred_logits,gold_labels,threshold):
     pred_label=pred_logits.cpu().numpy()
     gold_label=gold_labels.cpu().numpy()
-    batch_size=gold_label.size()[0]
+    batch_size=gold_label.shape[0]
     pred_label [pred_label < threshold] = 0
     pred_label [pred_label >=threshold] = 1
     acc = 0
