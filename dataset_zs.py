@@ -10,7 +10,7 @@ from utils import get_cuda
 
 class MedicalExtractionDatasetForSubjectAndBody(Dataset):
 
-    def __init__(self, data_path, max_len=512, side_span=20):
+    def __init__(self, data_path, max_len=300, left_side_span=30, right_side_span=5):
         super(MedicalExtractionDatasetForSubjectAndBody, self).__init__()
         self.data_path = data_path
         self.raw_data = None
@@ -23,7 +23,8 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         # TODO TypeError: can't pickle Tokenizer objects
         # self.tokenizer = PLMConfig.tokenizer
         self.max_len = max_len
-        self.side_span = side_span
+        self.left_side_span = left_side_span
+        self.right_side_span = right_side_span
 
     def __getitem__(self, item):
         example = self.data[item]
@@ -34,7 +35,8 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
 
         subject = attr_dict['subject']
         body = attr_dict['body']
-        span_bound = max(0, symptom_pos[0] - self.side_span), min(symptom_pos[1] + self.side_span, len(raw_text))
+        span_bound = max(0, symptom_pos[0] - self.left_side_span), min(symptom_pos[1] + self.right_side_span,
+                                                                       len(raw_text))
         text_span = raw_text[span_bound[0]:span_bound[1] + 1]
         text_token = PLMConfig.tokenizer.encode(text_span)
         text_ids = text_token.ids[1:-1]
@@ -89,9 +91,9 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
             'token_type_ids': get_cuda(token_type_ids),
             'subject_target_ids': get_cuda(subject_target_ids),
             'body_target_ids': get_cuda(body_target_ids),
-            # 'text_offsets': text_offsets,
-            # 'raw_text': raw_text,
-            # 'symptom_name': symptom_name
+            'text_offsets': text_offsets,
+            'raw_text': raw_text,
+            'symptom_name': symptom_name
         }
 
     def __len__(self):

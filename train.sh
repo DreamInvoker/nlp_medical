@@ -3,8 +3,8 @@ export CUDA_VISIBLE_DEVICES=$1
 
 model_name=baseline
 lr=3e-5
-batch_size=16
-epochs=15
+batch_size=8
+epochs=10
 
 save_model_freq=3
 num_warmup_steps=500

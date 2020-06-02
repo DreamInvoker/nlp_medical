@@ -62,7 +62,6 @@ def text_process(text_contains_entities):
     return raw_text
 
 
-
 def process_sym_attr(raw_text, attr):
     attr_dict = {}
     for k in attr:
@@ -123,61 +122,63 @@ def is_number(s):
         pass
     return False
 
+
 """
 return a dic ->(key,value)
 key -> entity type ('dis','body','sym','ite')
 value -> a list contains span pos([[0,2],[21,22],[34,37]...)
 """
+
+
 def get_entity(text_contains_entities):
     text_contains_entities.encode('utf-8')
-    stack =[]
-    entity_dic ={}
+    stack = []
+    entity_dic = {}
     idx = 0
     rel_pos = 0
 
     while idx < len(text_contains_entities):
-        if text_contains_entities[idx]=='[':
-            if stack==[]:
-                number_idx = idx+1
+        if text_contains_entities[idx] == '[':
+            if stack == []:
+                number_idx = idx + 1
                 while is_number(text_contains_entities[number_idx]):
-                    number_idx+=1
-                true_idx =int(text_contains_entities[idx+1:number_idx])
+                    number_idx += 1
+                true_idx = int(text_contains_entities[idx + 1:number_idx])
                 stack.append(true_idx)
-                rel_pos=true_idx
-                idx+=number_idx-idx
+                rel_pos = true_idx
+                idx += number_idx - idx
                 continue
             else:
                 stack.append(rel_pos)
-                idx+=1
+                idx += 1
                 continue
 
-        elif text_contains_entities[idx]==']':
+        elif text_contains_entities[idx] == ']':
             if len(stack) == 1:
-                number_idx = idx-1
+                number_idx = idx - 1
                 while is_number(text_contains_entities[number_idx]):
-                    number_idx-=1
-                tail=int(text_contains_entities[number_idx+1:idx])
-                head=stack[-1]
+                    number_idx -= 1
+                tail = int(text_contains_entities[number_idx + 1:idx])
+                head = stack[-1]
                 stack.pop()
-                #if raw_text[idx+1:idx+4] in ['bod ', 'dis ', 'sym ', 'ite ']:
-                entity_dic.setdefault(text_contains_entities[idx+1:idx+4], []).append([head,tail])
-                idx+=4
+                # if raw_text[idx+1:idx+4] in ['bod ', 'dis ', 'sym ', 'ite ']:
+                entity_dic.setdefault(text_contains_entities[idx + 1:idx + 4], []).append([head, tail])
+                idx += 4
                 continue
             else:
-                tail = rel_pos-1
+                tail = rel_pos - 1
                 head = stack[-1]
                 stack.pop()
                 entity_dic.setdefault(text_contains_entities[idx + 1:idx + 4], []).append([head, tail])
                 idx += 4
                 continue
         else:
-            if text_contains_entities[idx] !=' ':
-                rel_pos+=1
+            if text_contains_entities[idx] != ' ':
+                rel_pos += 1
             idx += 1
             continue
 
     return entity_dic
-
 
 
 """
@@ -185,14 +186,16 @@ return a dic ->(key,value)
 key -> entity type ('dis','body','sym','ite')
 value -> a list(size=len(raw_text))  represent sequence labeling([0,1,1,1,0,0...])
 """
-def get_entity_anno(text_contains_entities,raw_text_length):
-    entity_annolist_dic ={}
+
+
+def get_entity_anno(text_contains_entities, raw_text_length):
+    entity_annolist_dic = {}
     entity_dic = get_entity(text_contains_entities)
 
     for k in entity_dic.keys():
-        array =[0]*raw_text_length
+        array = [0] * raw_text_length
         for span in entity_dic[k]:
-            array[span[0]:span[1]+1]=[1]*(span[1]-span[0]+1)
-        entity_list_dic[k]=array
+            array[span[0]:span[1] + 1] = [1] * (span[1] - span[0] + 1)
+        entity_list_dic[k] = array
 
     return entity_annolist_dic
