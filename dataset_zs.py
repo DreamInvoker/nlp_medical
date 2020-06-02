@@ -113,6 +113,11 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
             if len(symptom_pos) == 0:
                 continue
             try:
+                a = symptom_pos[0]
+                b = symptom_pos[1]
+            except:
+                continue
+            try:
                 symptom_name = symtom_name.split(': ')[1]
             except:
                 symptom_name = symtom_name.split(':')[1]

@@ -86,7 +86,7 @@ def train(opt):
                          )
 
     model = MedicalExtractionModel(opt)
-    print(model.parameters)
+    # print(model.parameters)
     print_params(model)
 
     start_epoch = 1
