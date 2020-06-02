@@ -1,23 +1,25 @@
 import json
 import os
+import time
 
-from config import get_opt
-
-from dataset import MedicalExtractionDataset
-from model import MedicalExtractionModel
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
+from config import get_opt
+from dataset import MedicalExtractionDataset
+from model import MedicalExtractionModel
 from utils import get_cuda, logging, print_params
-import time
+
 
 def train(opt):
     train_ds = MedicalExtractionDataset(opt.train_data)
     dev_ds = MedicalExtractionDataset(opt.dev_data)
 
-    dev_dl = DataLoader(train_ds,
-                        batch_size=opt.dev_batch_size
+    dev_dl = DataLoader(dev_ds,
+                        batch_size=opt.dev_batch_size,
+                        shuffle=False,
+                        num_workers=1
                         )
 
     model = MedicalExtractionModel(opt)
@@ -44,6 +46,7 @@ def train(opt):
 
     model = get_cuda(model)
 
+    # TODO 如果用Bert可以改成AdamW
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # TODO loss function
@@ -82,7 +85,7 @@ def train(opt):
                 elapsed = time.time() - start_time
                 logging(
                     '| epoch {:2d} | step {:4d} |  ms/b {:5.2f} | train loss {:5.3f} '.format(
-                        epoch, global_step, elapsed * 1000 / log_step, cur_loss*1000))
+                        epoch, global_step, elapsed * 1000 / log_step, cur_loss * 1000))
                 total_loss = 0
                 start_time = time.time()
 
@@ -90,6 +93,7 @@ def train(opt):
             model.eval()
             with torch.no_grad():
                 for batch in dev_dl:
+                    # TODO 在验证集上测试
                     pass
 
         # save model
