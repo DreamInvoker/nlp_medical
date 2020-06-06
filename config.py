@@ -35,7 +35,7 @@ def get_opt():
     parser.add_argument('--dev_batch_size', type=int, default=16)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--num_warmup_steps', type=int, default=500)
-    parser.add_argument('--num_worker', type=int, default=1)
+    parser.add_argument('--num_worker', type=int, default=2)
     parser.add_argument('--threshold', type=float, default=0.5)
     parser.add_argument('--test_epoch', type=int, default=1)
     parser.add_argument('--patience', type=int, default=3)

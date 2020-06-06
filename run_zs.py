@@ -68,11 +68,7 @@ def train(opt):
     dev_ds = MedicalExtractionDatasetForSubjectAndBody(opt.dev_data)
     test_ds = MedicalExtractionDatasetForSubjectAndBody(opt.test_data)
 
-    train_dl = DataLoader(train_ds,
-                          batch_size=opt.batch_size,
-                          shuffle=True,
-                          num_workers=opt.num_worker
-                          )
+
     dev_dl = DataLoader(dev_ds,
                         batch_size=opt.dev_batch_size,
                         shuffle=False,
@@ -134,7 +130,11 @@ def train(opt):
     for epoch in range(start_epoch, total_epochs + 1):
         train_loss = 0.0
         val_loss = 0.0
-
+        train_dl = DataLoader(train_ds,
+                              batch_size=opt.batch_size,
+                              shuffle=True,
+                              num_workers=opt.num_worker
+                              )
         model.train()
         tk_train = tqdm(train_dl, total=len(train_dl))
         for batch in tk_train:
@@ -175,7 +175,7 @@ def train(opt):
             torch.save({
                 'epoch': epoch,
                 'learning_rate': learning_rate,
-                'checkpoint': model.state_dict()
+                'checkpoints': model.state_dict()
             }, save_model_path)
 
     # load best model and test

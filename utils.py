@@ -77,6 +77,6 @@ class EarlyStopping:
             torch.save({
                 'epoch': epoch,
                 'learning_rate': learning_rate,
-                'checkpoint': model.state_dict()
+                'checkpoints': model.state_dict()
             }, model_path)
         self.val_score = epoch_score
