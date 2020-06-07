@@ -10,8 +10,8 @@ def token_metrics(pred_logits,gold_labels,threshold,mask=None):
     batch_size = gold_label.shape[0]
     pred_label[pred_label < threshold] = 0
     pred_label[pred_label >= threshold] = 1
-
-    if mask:
+    mask = mask.unsqueeze(-1).cpu().numpy()
+    if mask is not None:
         pred_label = pred_label*mask
         gold_label = gold_label*mask
 
@@ -24,7 +24,7 @@ def token_metrics(pred_logits,gold_labels,threshold,mask=None):
         prec += metrics.precision_score(gold, pred, labels=[1], average='micro',zero_division=1)
         rec += metrics.recall_score(gold, pred, labels=[1], average='micro',zero_division=1)
         f1 += metrics.f1_score(gold, pred, labels=[1], average='micro',zero_division=1)
-        jac += metrics.jaccard_score(gold, pred, labels=[1], average='micro',zero_division=1)
+        jac += metrics.jaccard_score(gold, pred, labels=[1], average='micro')
 
     prec /= batch_size
     rec /= batch_size
@@ -39,8 +39,8 @@ def span_metrics(pred_logits,gold_labels,threshold,mask=None):
     batch_size = gold_label.shape[0]
     pred_label[pred_label < threshold] = 0
     pred_label[pred_label >= threshold] = 1
-
-    if mask:
+    mask = mask.unsqueeze(-1).cpu().numpy()
+    if mask is not None:
         pred_label = pred_label*mask
         gold_label = gold_label*mask
 
@@ -51,7 +51,7 @@ def span_metrics(pred_logits,gold_labels,threshold,mask=None):
     gold_span = get_pos_list(gold_label)
     pred_span = get_pos_list(pred_label)
     for batch_index in range(batch_size):
-        print(batch_index)
+        # print(batch_index)
         p,r,f =span_metrics_eval(gold_span[batch_index],pred_span[batch_index])
         prec+=p
         rec+=r
