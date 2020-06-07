@@ -71,6 +71,7 @@ class Span_eval():
         self.TP_FN = 0
 
     def reset(self):
+        
         self.TP = 0
         self.TP_FP = 0
         self.TP_FN = 0
