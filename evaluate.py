@@ -99,7 +99,7 @@ class Span_eval():
         self.TP_FP += len(pred_span_pos)
         self.TP_FN +=len(gold_span_pos)
 
-    def cal_metrcs(self):
+    def cal_metrics(self):
         prec = self.TP/self.TP_FP
         recall = self.TP/self.TP_FN
         if prec ==0 and recall == 0:
@@ -187,7 +187,7 @@ if __name__ == '__main__':
     print(pred)
     eval = Span_eval()
     eval.span_metrics(pred,gold,0.5)
-    print(eval.cal_metrcs())
+    print(eval.cal_metrics())
 
 
 
