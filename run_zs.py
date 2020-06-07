@@ -40,13 +40,14 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val'):
             subject_target_ids = batch['subject_target_ids']
             body_target_ids = batch['body_target_ids']
             batch_size = subject_target_ids.shape[0]
-
+            mask = batch['mask'].float()
             subject_logits, body_logits = model(
                 input_ids=batch['input_ids'],
                 attention_mask=batch['mask'],
                 token_type_ids=batch['token_type_ids']
             )
-            loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
+            loss = torch.sum((criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids))
+                             * mask.unsqueeze(-1)) / torch.sum(mask)
             test_loss += loss.item() * batch_size
 
             # TODO 暂时对于body和subject用统一的thresh
@@ -67,7 +68,6 @@ def train(opt):
     train_ds = MedicalExtractionDatasetForSubjectAndBody(opt.train_data)
     dev_ds = MedicalExtractionDatasetForSubjectAndBody(opt.dev_data)
     test_ds = MedicalExtractionDatasetForSubjectAndBody(opt.test_data)
-
 
     dev_dl = DataLoader(dev_ds,
                         batch_size=opt.dev_batch_size,
@@ -120,7 +120,7 @@ def train(opt):
         num_training_steps=num_train_steps
     )
     threshold = opt.threshold
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss(reduction='none')
 
     checkpoint_dir = opt.checkpoint_dir
     if not os.path.exists(checkpoint_dir):
@@ -141,13 +141,14 @@ def train(opt):
             optimizer.zero_grad()
             subject_target_ids = batch['subject_target_ids']
             body_target_ids = batch['body_target_ids']
-
+            mask = batch['mask'].float()
             subject_logits, body_logits = model(
                 input_ids=batch['input_ids'],
                 attention_mask=batch['mask'],
                 token_type_ids=batch['token_type_ids']
             )
-            loss = criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids)
+            loss = torch.sum((criterion(subject_logits, subject_target_ids) + criterion(body_logits, body_target_ids))
+                             * mask.unsqueeze(-1)) / torch.sum(mask)
 
             loss.backward()
             optimizer.step()
