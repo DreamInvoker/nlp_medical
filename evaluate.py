@@ -70,6 +70,11 @@ class Span_eval():
         self.TP_FP = 0
         self.TP_FN = 0
 
+    def reset(self):
+        self.TP = 0
+        self.TP_FP = 0
+        self.TP_FN = 0
+
     def span_metrics(self,pred_logits,gold_labels,threshold=0.5,mask=None):
         pred_label = pred_logits.cpu().numpy()
         gold_label = gold_labels.cpu().numpy()
