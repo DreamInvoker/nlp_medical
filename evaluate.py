@@ -66,11 +66,14 @@ def span_metrics(pred_logits,gold_labels,threshold,mask=None):
 
 def span_metrics_eval(gold_span_pos,pred_span_pos):
     cnt = 0
+
     for span in pred_span_pos:
         if span in gold_span_pos:
             cnt+=1
-
-    prec = cnt/len(pred_span_pos)
+    if pred_span_pos!=[]:
+        prec = cnt/len(pred_span_pos)
+    else:
+        prec = 1
 
     cnt = 0
 
@@ -78,9 +81,17 @@ def span_metrics_eval(gold_span_pos,pred_span_pos):
         if span in pred_span_pos:
             cnt+=1
 
-    recall = cnt/len(gold_span_pos)
+    if gold_span_pos!=[]:
+        recall = cnt / len(gold_span_pos)
+    else:
+        recall = 1
 
-    f1 = 2*(prec*recall)/(prec+recall)
+    if pred_span_pos==[] and gold_span_pos==[]:
+        f1 = 1
+    elif prec == 0 and recall == 0:
+        f1 = 0
+    else:
+        f1 = 2*(prec*recall)/(prec+recall)
 
     return prec,recall,f1
 
@@ -122,7 +133,7 @@ def get_pos_list(label):
 
 
 if __name__ == '__main__':
-    gold = torch.Tensor([[1,1,0,0,1,1,1]])
+    gold = torch.Tensor([[0,1,1,0,0,0,0]])
     pred = torch.Tensor([[1,1,0,1,1,0,1]])
 
     print(gold)
