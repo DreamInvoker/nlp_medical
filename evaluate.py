@@ -64,6 +64,51 @@ def span_metrics(pred_logits,gold_labels,threshold,mask=None):
     return prec , rec, f1
 
 
+class Span_eval():
+    def __init__(self):
+        self.TP = 0
+        self.TP_FP = 0
+        self.TP_FN = 0
+
+    def span_metrics(self,pred_logits,gold_labels,threshold=0.5,mask=None):
+        pred_label = pred_logits.cpu().numpy()
+        gold_label = gold_labels.cpu().numpy()
+
+        batch_size = gold_label.shape[0]
+        pred_label[pred_label < threshold] = 0
+        pred_label[pred_label >= threshold] = 1
+
+        if mask:
+            pred_label = pred_label * mask
+            gold_label = gold_label * mask
+
+        gold_span = get_pos_list(gold_label)
+        pred_span = get_pos_list(pred_label)
+        for batch_index in range(batch_size):
+
+            self.metrics_eval(gold_span[batch_index], pred_span[batch_index])
+
+
+    def metrics_eval(self,gold_span_pos,pred_span_pos):
+        cnt = 0
+        for span in pred_span_pos:
+            if span in gold_span_pos:
+                cnt += 1
+
+        self.TP +=cnt
+        self.TP_FP += len(pred_span_pos)
+        self.TP_FN +=len(gold_span_pos)
+
+    def cal_metrcs(self):
+        prec = self.TP/self.TP_FP
+        recall = self.TP/self.TP_FN
+        if prec ==0 and recall == 0:
+            f1 = 1
+        else:
+            f1   = 2*(prec*recall)/(prec+recall)
+
+        return prec,recall,f1
+
 def span_metrics_eval(gold_span_pos,pred_span_pos):
     cnt = 0
 
@@ -133,12 +178,16 @@ def get_pos_list(label):
 
 
 if __name__ == '__main__':
-    gold = torch.Tensor([[0,1,1,0,0,0,0]])
-    pred = torch.Tensor([[1,1,0,1,1,0,1]])
+    gold = torch.Tensor([[0,1,1,0,1,1,1],[0,1,0,0,1,1,1]])
+    #mask =torch.Tensor([[1,1,1,1,0,0,0],[1,1,1,1,1,1,1]])
+    pred = torch.Tensor([[0,1,1,0,0,1,1],[0,1,0,1,0,1,1]])
 
+    #gold =gold*mask
     print(gold)
     print(pred)
-    print(span_metrics(pred,gold,0.5))
-    print(token_metrics(pred,gold,0.5))
+    eval = Span_eval()
+    eval.span_metrics(pred,gold,0.5)
+    print(eval.cal_metrcs())
+
 
 
