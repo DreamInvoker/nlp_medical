@@ -9,7 +9,7 @@ from transformers import get_linear_schedule_with_warmup
 
 from config import *
 from dataset_zs import MedicalExtractionDatasetForSubjectAndBody
-from evaluate import token_metrics, span_metrics
+from evaluate import token_metrics, span_metrics, Span_eval
 from model import MedicalExtractionModel
 from utils import get_cuda, logging, print_params, EarlyStopping, seed_everything
 
@@ -27,41 +27,21 @@ def print_eval(metrics_list, batch_size_list, attr_type):
 
     print('{} token\tP: {:.3f}\tR: {:.3f}\tF1: {:.3f}\tJaccard: {:.3f}'.format(attr_type, avg_p, avg_r, avg_f1, avg_jac))
 
+def print_eval_all(evaluation, attr_type):
+    p, r, f1 = evaluation.cal_metrics()
 
-def print_span_eval(metrics_list, batch_size_list, attr_type):
-    avg_p, avg_r, avg_f1 = 0.0, 0.0, 0.0
-    count = 0
-    for (p, r, f1), bsz in zip(metrics_list, batch_size_list):
-        avg_p += p * bsz
-        avg_r += r * bsz
-        avg_f1 += f1 * bsz
-        count += bsz
-    avg_p, avg_r, avg_f1 = avg_p / count, avg_r / count, avg_f1 / count
-
-    print('{} span\tP: {:.3f}\tR: {:.3f}\tF1: {:.3f}'.format(attr_type, avg_p, avg_r, avg_f1))
-
-def print_eval_all(logits, target, threshold, mask, attr_type):
-    p, r, f1 = span_metrics(logits, target, threshold, mask)
-    _, _, _, jac = token_metrics(logits, target, threshold, mask)
-
-    print('{} \tP: {:.3f}\tR: {:.3f}\tF1: {:.3f}\tJaccard: {:.3f}'.format(attr_type, p, r, f1, jac))
+    print('{} \tP: {:.3f}\tR: {:.3f}\tF1: {:.3f}'.format(attr_type, p, r, f1), end='')
 
 
 def test(model, ds, loader, criterion, threshold=0.5, name='val'):
     model.eval()
     test_loss = 0.0
+    subject_evaluation = Span_eval()
+    body_evaluation = Span_eval()
+    subject_jac = 0.0
+    body_jac = 0.0
     with torch.no_grad():
-        subject_metrics_list = []
-        subject_span_metrics_list = []
-        body_metrics_list = []
-        body_span_metrics_list = []
-        batch_size_list = []
 
-        subject_logits_list = []
-        subject_target_list = []
-        mask_list = []
-        body_logits_list = []
-        body_target_list = []
         tk_val = tqdm(loader, total=len(loader))
         for batch in tk_val:
             subject_target_ids = batch['subject_target_ids']
@@ -77,32 +57,20 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val'):
                              * mask.unsqueeze(-1)) / torch.sum(mask)
             test_loss += loss.item() * batch_size
 
-            subject_logits_list.append(subject_logits)
-            subject_target_list.append(subject_target_ids)
-            body_logits_list.append(body_logits)
-            body_target_list.append(body_target_ids)
-            mask_list.append(mask)
-
-            break
-
-        subject_logits_list = torch.stack(subject_logits_list, dim=0)
-        subject_logits_list = subject_logits_list.squeeze(0)
-        subject_target_list = torch.stack(subject_target_list, dim=0)
-        subject_target_list = subject_target_list.squeeze(0)
-        body_logits_list = torch.stack(body_logits_list, dim=0)
-        body_logits_list = body_logits_list.squeeze(0)
-        body_target_list = torch.stack(body_target_list, dim=0)
-        body_target_list = body_target_list.squeeze(0)
-        mask_list = torch.stack(mask_list)
-        mask_list = mask_list.squeeze(0)
+            subject_evaluation.span_metrics(subject_logits, subject_target_ids, threshold, mask)
+            body_evaluation.span_metrics(body_logits, body_target_ids, threshold, mask)
+            subject_jac += token_metrics(subject_logits, subject_target_ids, threshold, mask)[3] * batch_size
+            body_jac += token_metrics(body_logits, body_target_ids, threshold, mask)[3] * batch_size
 
         avg_test_loss = test_loss * 1000 / len(ds)
         print('{} loss per example: {:5.3f} / 1000'.format(name, avg_test_loss))
 
-        print_eval_all(subject_logits_list, subject_target_list, threshold, mask_list, 'subject')
-        print_eval_all(body_logits_list, body_target_list, threshold, mask_list, 'body')
+        print_eval_all(subject_evaluation, 'subject')
+        print('\tJaccard:{:5.3f}'.format(subject_jac/len(ds)))
+        print_eval_all(body_evaluation, 'body')
+        print('\tJaccard:{:5.3f}'.format(body_jac/len(ds)))
 
-    return test_loss
+    return avg_test_loss
 
 
 def train(opt):
@@ -197,9 +165,6 @@ def train(opt):
             tk_train.set_postfix(train_loss='{:5.3f} / 1000'.format(1000 * loss.item()),
                                  epoch='{:2d}'.format(epoch))
             train_loss += loss.item() * subject_target_ids.shape[0]
-
-            break
-
 
         avg_train_loss = train_loss * 1000 / len(train_ds)
         print('train loss per example: {:5.3f} / 1000'.format(avg_train_loss))
