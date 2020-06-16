@@ -10,7 +10,7 @@ from utils import get_cuda
 
 class MedicalExtractionDataset(Dataset):
 
-    def __init__(self, data_path, max_len=300, left_side_span=30, right_side_span=5):
+    def __init__(self, data_path, max_len=400, left_side_span=30, right_side_span=5):
         super(MedicalExtractionDataset, self).__init__()
         self.data_path = data_path
         self.raw_data = None
@@ -88,9 +88,9 @@ class MedicalExtractionDataset(Dataset):
         }
 
         # for subject, decorate and freq
-        subject_target_span = subject[symptom_pos[0]:symptom_pos[1]]
-        decorate_target_span = decorate[symptom_pos[0]:symptom_pos[1]]
-        freq_target_span = freq[symptom_pos[0]:symptom_pos[1]]
+        subject_target_span = subject[symptom_pos[0]:symptom_pos[1] + 1]
+        decorate_target_span = decorate[symptom_pos[0]:symptom_pos[1] + 1]
+        freq_target_span = freq[symptom_pos[0]:symptom_pos[1] + 1]
 
         subject_target_ids = []
         decorate_target_ids = []
@@ -120,7 +120,7 @@ class MedicalExtractionDataset(Dataset):
         offsets = [(0, 0)] + symptom_offsets + [(0, 0)]
         subject_target_ids = [0] + subject_target_ids + [0]
         decorate_target_ids = [0] + decorate_target_ids + [0]
-        freq_target_ids = [0] + decorate_target_ids + [0]
+        freq_target_ids = [0] + freq_target_ids + [0]
 
         padding_length = self.max_len - len(input_ids)
         if padding_length > 0:
@@ -138,7 +138,6 @@ class MedicalExtractionDataset(Dataset):
         subject_target_ids = torch.tensor(subject_target_ids, dtype=torch.float).unsqueeze(-1)
         decorate_target_ids = torch.tensor(decorate_target_ids, dtype=torch.float).unsqueeze(-1)
         freq_target_ids = torch.tensor(freq_target_ids, dtype=torch.float).unsqueeze(-1)
-
         data.update({
             'input_ids': get_cuda(input_ids),
             'token_type_ids': get_cuda(token_type_ids),
