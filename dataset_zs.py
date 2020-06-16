@@ -10,7 +10,7 @@ from utils import get_cuda
 
 class MedicalExtractionDataset(Dataset):
 
-    def __init__(self, data_path, max_len=400, left_side_span=350, right_side_span=5):
+    def __init__(self, data_path, max_len=500, left_side_span=350, right_side_span=5):
         super(MedicalExtractionDataset, self).__init__()
         self.data_path = data_path
         self.raw_data = None
@@ -82,7 +82,7 @@ class MedicalExtractionDataset(Dataset):
             'body_token_type_ids': get_cuda(body_token_type_ids),
             'body_mask': get_cuda(body_mask),
             'body_target_ids': get_cuda(body_target_ids),
-            'body_text_offsets': body_text_offsets,
+            'body_text_offsets': torch.tensor(body_text_offsets),
             'raw_text': raw_text,
             'symptom_name': symptom_name
         }
@@ -145,7 +145,7 @@ class MedicalExtractionDataset(Dataset):
             'subject_target_ids': get_cuda(subject_target_ids),
             'decorate_target_ids': get_cuda(decorate_target_ids),
             'freq_target_ids': get_cuda(freq_target_ids),
-            'offsets': offsets
+            'offsets': torch.tensor(offsets)
         })
 
         return data

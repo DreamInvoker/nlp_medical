@@ -1,6 +1,7 @@
 import json
 import os
 
+import numpy as np
 import torch
 from sklearn import metrics
 from torch import nn
@@ -20,7 +21,7 @@ def token_metrics(pred_logits, gold_labels, threshold, mask=None):
     batch_size = gold_label.shape[0]
     pred_label[pred_label < threshold] = 0
     pred_label[pred_label >= threshold] = 1
-    mask = mask.unsqueeze(-1).cpu().numpy()
+    mask = mask.cpu().numpy()
     if mask is not None:
         pred_label = pred_label * mask
         gold_label = gold_label * mask
@@ -87,7 +88,7 @@ class Span_eval():
         batch_size = gold_label.shape[0]
         pred_label[pred_label < threshold] = 0
         pred_label[pred_label >= threshold] = 1
-        mask = mask.unsqueeze(-1).cpu().numpy()
+        mask = mask.cpu().numpy()
         if mask is not None:
             pred_label = pred_label * mask
             gold_label = gold_label * mask
@@ -206,7 +207,21 @@ def print_eval_all(evaluation, attr_type):
     print('{} span\tP: {:.3f}\tR: {:.3f}\tF1: {:.3f}'.format(attr_type, p, r, f1))
 
 
-def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False):
+def get_spans(label_list, offsets, raw_text):
+    span_list = set([])
+    text = ""
+    for label, offset in zip(label_list, offsets):
+        if label == 0:
+            span_list.add(text)
+            text = ""
+        else:
+            text += ''.join(raw_text[offset[0]:offset[1]])
+    span_list = list(span_list)
+    if "" in span_list:
+        span_list.remove("")
+    return span_list
+
+def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False, output=False):
     model.eval()
     test_loss = 0.0
     subject_evaluation = Span_eval()
@@ -221,14 +236,19 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False):
     with torch.no_grad():
 
         tk_val = tqdm(loader, total=len(loader))
+        output_list = []
         for batch in tk_val:
             subject_target_ids = batch['subject_target_ids']
             decorate_target_ids = batch['decorate_target_ids']
             freq_target_ids = batch['freq_target_ids']
             body_target_ids = batch['body_target_ids']
             batch_size = subject_target_ids.shape[0]
-            mask = batch['mask'].float()
-            body_mask = batch['body_mask'].float()
+            mask = batch['mask'].float().unsqueeze(-1)
+            body_mask = batch['body_mask'].float().unsqueeze(-1)
+            raw_text = batch['raw_text']
+            symptom_name = batch['symptom_name']
+            body_text_offsets = batch['body_text_offsets'].numpy()
+            offsets = batch['offsets'].numpy()
             loss = None
             if isbody:
                 body_logits = model(
@@ -237,10 +257,32 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False):
                     token_type_ids=batch['body_token_type_ids']
                 )
                 loss = torch.sum(criterion(body_logits, body_target_ids)
-                                 * body_mask.unsqueeze(-1)) / torch.sum(body_mask)
-                body_evaluation.span_metrics(body_logits, body_target_ids, threshold, body_mask)
+                                 * body_mask) / torch.sum(body_mask)
+
+                body_pred = ((torch.sigmoid(body_logits) >= threshold) * body_mask).long()
+
+                body_evaluation.span_metrics(torch.sigmoid(body_logits), body_target_ids, threshold, body_mask)
                 body_metrics_list.append(
-                    token_metrics(body_logits, body_target_ids, threshold=threshold, mask=body_mask))
+                    token_metrics(torch.sigmoid(body_logits), body_target_ids, threshold=threshold, mask=body_mask))
+
+                if output:
+                    for i in range(batch_size):
+                        length = int(torch.sum(body_mask[i]).item())
+                        body_pred_i = body_pred[i, :length].squeeze().cpu().numpy().tolist()
+                        raw_text_i = raw_text[i]
+                        body_text_offsets_i = body_text_offsets[i, :length]
+                        symptom_name_i = symptom_name[i]
+                        target_i = body_target_ids[i, :length].long().squeeze().cpu().numpy().tolist()
+                        span_list = get_spans(body_pred_i, body_text_offsets_i, raw_text_i)
+                        target_list = get_spans(target_i, body_text_offsets_i, raw_text_i)
+
+                        output_list.append({
+                            'text': raw_text_i,
+                            'symptom_name': symptom_name_i,
+                            'predict_body': span_list,
+                            'gold_body': target_list
+                        })
+
             else:
                 subject_logits, decorate_logits, freq_logits = model(
                     input_ids=batch['input_ids'],
@@ -250,16 +292,50 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False):
                 loss = torch.sum((criterion(subject_logits, subject_target_ids) +
                                   criterion(decorate_logits, decorate_target_ids) +
                                   criterion(freq_logits, freq_target_ids))
-                                 * mask.unsqueeze(-1)) / torch.sum(mask)
-                subject_evaluation.span_metrics(subject_logits, subject_target_ids, threshold, mask)
-                decorate_evaluation.span_metrics(decorate_logits, decorate_target_ids, threshold, mask)
-                freq_evaluation.span_metrics(freq_logits, freq_target_ids, threshold, mask)
+                                 * mask) / torch.sum(mask)
+                subject_pred = (torch.sigmoid(subject_logits) >= threshold) * mask
+                decorate_pred = (torch.sigmoid(decorate_logits) >= threshold) * mask
+                freq_pred = (torch.sigmoid(freq_logits) >= threshold) * mask
+
+                if output:
+                    for i in range(batch_size):
+                        length = int(torch.sum(mask[i]).item())
+                        subject_pred_i = subject_pred[i, :length].long().squeeze().cpu().numpy().tolist()
+                        decorate_pred_i = decorate_pred[i, :length].long().squeeze().cpu().numpy().tolist()
+                        freq_pred_i = freq_pred[i, :length].long().squeeze().cpu().numpy().tolist()
+                        raw_text_i = raw_text[i]
+                        offsets_i = offsets[i, :length]
+                        symptom_name_i = symptom_name[i]
+                        subject_target_i = subject_target_ids[i, :length].long().squeeze().cpu().numpy().tolist()
+                        decorate_target_i = decorate_target_ids[i, :length].long().squeeze().cpu().numpy().tolist()
+                        freq_target_i = freq_target_ids[i, :length].long().squeeze().cpu().numpy().tolist()
+                        subject_span_list = get_spans(subject_pred_i, offsets_i, symptom_name_i)
+                        decorate_span_list = get_spans(decorate_pred_i, offsets_i, symptom_name_i)
+                        freq_span_list = get_spans(freq_pred_i, offsets_i, symptom_name_i)
+                        subject_target_list = get_spans(subject_target_i, offsets_i, symptom_name_i)
+                        decorate_target_list = get_spans(decorate_target_i, offsets_i, symptom_name_i)
+                        freq_target_list = get_spans(freq_target_i, offsets_i, symptom_name_i)
+
+                        output_list.append({
+                            'text': raw_text_i,
+                            'symptom_name': symptom_name_i,
+                            'predict_subject': subject_span_list,
+                            'gold_subject': subject_target_list,
+                            'predict_decorate': decorate_span_list,
+                            'gold_decorate': decorate_target_list,
+                            'predict_freq': freq_span_list,
+                            'gold_freq': freq_target_list,
+                        })
+
+                subject_evaluation.span_metrics(torch.sigmoid(subject_logits), subject_target_ids, threshold, mask)
+                decorate_evaluation.span_metrics(torch.sigmoid(decorate_logits), decorate_target_ids, threshold, mask)
+                freq_evaluation.span_metrics(torch.sigmoid(freq_logits), freq_target_ids, threshold, mask)
 
                 subject_metrics_list.append(
-                    token_metrics(subject_logits, subject_target_ids, threshold=threshold, mask=mask))
+                    token_metrics(torch.sigmoid(subject_logits), subject_target_ids, threshold=threshold, mask=mask))
                 decorate_metrics_list.append(
-                    token_metrics(decorate_logits, decorate_target_ids, threshold=threshold, mask=mask))
-                freq_metrics_list.append(token_metrics(freq_logits, freq_target_ids, threshold=threshold, mask=mask))
+                    token_metrics(torch.sigmoid(decorate_logits), decorate_target_ids, threshold=threshold, mask=mask))
+                freq_metrics_list.append(token_metrics(torch.sigmoid(freq_logits), freq_target_ids, threshold=threshold, mask=mask))
 
             batch_size_list.append(batch_size)
 
@@ -271,6 +347,9 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False):
         if isbody:
             print_eval_all(body_evaluation, 'body')
             print_eval(body_metrics_list, batch_size_list, 'body')
+            if output:
+                with open('body_output.json', 'w') as fw:
+                    json.dump(output_list, fw)
         else:
             print_eval(subject_metrics_list, batch_size_list, 'subject')
             print_eval_all(subject_evaluation, 'subject')
@@ -278,6 +357,10 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False):
             print_eval_all(decorate_evaluation, 'decorate')
             print_eval(freq_metrics_list, batch_size_list, 'freq')
             print_eval_all(freq_evaluation, 'freq')
+
+            if output:
+                with open('output.json', 'w') as fw:
+                    json.dump(output_list, fw)
 
     return avg_test_loss
 
@@ -304,7 +387,7 @@ if __name__ == '__main__':
     checkpoint_dir = opt.checkpoint_dir
     model_name = opt.model_name
     criterion = nn.BCEWithLogitsLoss(reduction='none')
-    threshold = opt
+    threshold = opt.threshold
 
     body_best_model_path = os.path.join(checkpoint_dir, model_name + '_body_best.pt')
     chkpt = torch.load(body_best_model_path, map_location=torch.device('cpu'))
@@ -315,9 +398,11 @@ if __name__ == '__main__':
     model.load_state_dict(chkpt['checkpoints'])
 
     body_model = get_cuda(body_model)
-    test(body_model, test_ds, test_dl, criterion, threshold, 'test', True)
+    print('test body ...')
+    test(body_model, test_ds, test_dl, criterion, threshold, 'test', True, True)
     body_model.cpu()
 
     model = get_cuda(model)
-    test(model, test_ds, test_dl, criterion, threshold, 'test', False)
+    print('test others ...')
+    test(model, test_ds, test_dl, criterion, threshold, 'test', False, True)
     model.cpu()

@@ -84,8 +84,8 @@ def train(opt, isbody=False):
             decorate_target_ids = batch['decorate_target_ids']
             freq_target_ids = batch['freq_target_ids']
             body_target_ids = batch['body_target_ids']
-            mask = batch['mask'].float()
-            body_mask = batch['body_mask']
+            mask = batch['mask'].float().unsqueeze(-1)
+            body_mask = batch['body_mask'].unsqueeze(-1)
             loss = None
             if isbody:
                 body_logits = model(
@@ -94,7 +94,7 @@ def train(opt, isbody=False):
                     token_type_ids=batch['body_token_type_ids']
                 )
                 loss = torch.sum(criterion(body_logits, body_target_ids)
-                                 * body_mask.unsqueeze(-1)) / torch.sum(body_mask)
+                                 * body_mask) / torch.sum(body_mask)
             else:
                 subject_logits, decorate_logits, freq_logits = model(
                     input_ids=batch['input_ids'],
@@ -104,7 +104,7 @@ def train(opt, isbody=False):
                 loss = torch.sum((criterion(subject_logits, subject_target_ids) +
                                   criterion(decorate_logits, decorate_target_ids) +
                                   criterion(freq_logits, freq_target_ids))
-                                 * mask.unsqueeze(-1)) / torch.sum(mask)
+                                 * mask) / torch.sum(mask)
 
             loss.backward()
             optimizer.step()
