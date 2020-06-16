@@ -4,14 +4,14 @@ import torch
 from torch.utils.data import Dataset
 
 from config import PLMConfig
-from preprocess import text_process, process_sym_attr, get_entity
+from preprocess import text_process, process_sym_attr
 from utils import get_cuda
 
 
-class MedicalExtractionDatasetForSubjectAndBody(Dataset):
+class MedicalExtractionDataset(Dataset):
 
     def __init__(self, data_path, max_len=300, left_side_span=30, right_side_span=5):
-        super(MedicalExtractionDatasetForSubjectAndBody, self).__init__()
+        super(MedicalExtractionDataset, self).__init__()
         self.data_path = data_path
         self.raw_data = None
         with open(file=data_path, mode='r', encoding='utf-8') as fr:
@@ -33,68 +33,123 @@ class MedicalExtractionDatasetForSubjectAndBody(Dataset):
         attr_dict = example['attr_dict']
         symptom_pos = example['symptom_pos']
 
+        symptom_tokens = PLMConfig.tokenizer.encode(symptom_name)
+        symptom_ids = symptom_tokens.ids[1:-1]
+        symptom_offsets = symptom_tokens.offsets[1:-1]
+
         subject = attr_dict['subject']
         body = attr_dict['body']
-        span_bound = max(0, symptom_pos[0] - self.left_side_span), min(symptom_pos[1] + self.right_side_span,
-                                                                       len(raw_text))
-        text_span = raw_text[span_bound[0]:span_bound[1] + 1]
-        text_token = PLMConfig.tokenizer.encode(text_span)
-        text_ids = text_token.ids[1:-1]
-        text_offsets = text_token.offsets[1:-1]
-        subject_target_span = subject[span_bound[0]:span_bound[1] + 1]
-        body_target_span = body[span_bound[0]:span_bound[1] + 1]
+        decorate = attr_dict['decorate']
+        freq = attr_dict['frequency']
+
+        # for body
+        body_span_bound = max(0, symptom_pos[0] - self.left_side_span), min(symptom_pos[1] + self.right_side_span + 1,
+                                                                            len(raw_text))
+        body_text_span = raw_text[body_span_bound[0]:body_span_bound[1]]
+        body_text_token = PLMConfig.tokenizer.encode(body_text_span)
+        body_text_ids = body_text_token.ids[1:-1]
+        body_text_offsets = body_text_token.offsets[1:-1]
+        body_target_span = body[body_span_bound[0]:body_span_bound[1]]
+
+        body_target_ids = []
+        for idx, offset in enumerate(body_text_offsets):
+            body_total = sum(body_target_span[offset[0]:offset[1]])
+            if body_total > 0:
+                body_target_ids.append(1)
+            else:
+                body_target_ids.append(0)
+
+        body_input_ids = [101] + symptom_ids + [102] + body_text_ids + [102]
+        body_token_type_ids = [0] * (len(symptom_ids) + 2) + [1] * (len(body_text_ids) + 1)
+        body_mask = [1] * len(body_token_type_ids)
+        body_text_offsets = [(0, 0)] * (len(symptom_ids) + 2) + body_text_offsets + [(0, 0)]
+        body_target_ids = [0] * (len(symptom_ids) + 2) + body_target_ids + [0]
+
+        body_padding_length = self.max_len - len(body_input_ids)
+        if body_padding_length > 0:
+            body_input_ids = body_input_ids + ([0] * body_padding_length)
+            body_token_type_ids = body_token_type_ids + ([0] * body_padding_length)
+            body_mask = body_mask + ([0] * body_padding_length)
+            body_text_offsets = body_text_offsets + ([(0, 0)] * body_padding_length)
+            body_target_ids = body_target_ids + ([0] * body_padding_length)
+        body_input_ids = torch.tensor(body_input_ids, dtype=torch.long)
+        body_token_type_ids = torch.tensor(body_token_type_ids, dtype=torch.long)
+        body_mask = torch.tensor(body_mask, dtype=torch.long)
+        body_target_ids = torch.tensor(body_target_ids, dtype=torch.float).unsqueeze(-1)
+
+        data = {
+            'body_input_ids': get_cuda(body_input_ids),
+            'body_token_type_ids': get_cuda(body_token_type_ids),
+            'body_mask': get_cuda(body_mask),
+            'body_target_ids': get_cuda(body_target_ids),
+            'body_text_offsets': body_text_offsets,
+            'raw_text': raw_text,
+            'symptom_name': symptom_name
+        }
+
+        # for subject, decorate and freq
+        subject_target_span = subject[symptom_pos[0]:symptom_pos[1]]
+        decorate_target_span = decorate[symptom_pos[0]:symptom_pos[1]]
+        freq_target_span = freq[symptom_pos[0]:symptom_pos[1]]
 
         subject_target_ids = []
-        body_target_ids = []
-        for idx, offset in enumerate(text_offsets):
+        decorate_target_ids = []
+        freq_target_ids = []
+        for idx, offset in enumerate(symptom_offsets):
             subject_total = sum(subject_target_span[offset[0]:offset[1]])
             if subject_total > 0:
                 subject_target_ids.append(1)
             else:
                 subject_target_ids.append(0)
 
-            body_total = sum(body_target_span[offset[0]:offset[1]])
-            if body_total > 0:
-                body_target_ids.append(1)
+            decorate_total = sum(decorate_target_span[offset[0]:offset[1]])
+            if decorate_total > 0:
+                decorate_target_ids.append(1)
             else:
-                body_target_ids.append(0)
-        # tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-        # sym_tokens = tokenizer.encode(symptom_name)
+                decorate_target_ids.append(0)
 
-        symptom_tokens = PLMConfig.tokenizer.encode(symptom_name)
-        symptom_ids = symptom_tokens.ids[1:-1]
+            freq_total = sum(freq_target_span[offset[0]:offset[1]])
+            if freq_total > 0:
+                freq_target_ids.append(1)
+            else:
+                freq_target_ids.append(0)
 
-        input_ids = [101] + symptom_ids + [102] + text_ids + [102]
-        token_type_ids = [0] * (len(symptom_ids) + 2) + [1] * (len(text_ids) + 1)
+        input_ids = [101] + symptom_ids + [102]
+        token_type_ids = [0] * (len(symptom_ids) + 2)
         mask = [1] * len(token_type_ids)
-        text_offsets = [(0, 0)] * (len(symptom_ids) + 2) + text_offsets + [(0, 0)]
-        subject_target_ids = [0] * (len(symptom_ids) + 2) + subject_target_ids + [0]
-        body_target_ids = [0] * (len(symptom_ids) + 2) + body_target_ids + [0]
+        offsets = [(0, 0)] + symptom_offsets + [(0, 0)]
+        subject_target_ids = [0] + subject_target_ids + [0]
+        decorate_target_ids = [0] + decorate_target_ids + [0]
+        freq_target_ids = [0] + decorate_target_ids + [0]
 
         padding_length = self.max_len - len(input_ids)
         if padding_length > 0:
             input_ids = input_ids + ([0] * padding_length)
-            mask = mask + ([0] * padding_length)
             token_type_ids = token_type_ids + ([0] * padding_length)
-            text_offsets = text_offsets + ([(0, 0)] * padding_length)
+            mask = mask + ([0] * padding_length)
+            offsets = offsets + ([(0, 0)] * padding_length)
             subject_target_ids = subject_target_ids + ([0] * padding_length)
-            body_target_ids = body_target_ids + ([0] * padding_length)
-        input_ids = torch.tensor(input_ids, dtype=torch.long)
-        mask = torch.tensor(mask, dtype=torch.long)
-        token_type_ids = torch.tensor(token_type_ids, dtype=torch.long)
-        subject_target_ids = torch.tensor(subject_target_ids, dtype=torch.float).unsqueeze(-1)
-        body_target_ids = torch.tensor(body_target_ids, dtype=torch.float).unsqueeze(-1)
+            decorate_target_ids = decorate_target_ids + ([0] * padding_length)
+            freq_target_ids = freq_target_ids + ([0] * padding_length)
 
-        return {
+        input_ids = torch.tensor(input_ids, dtype=torch.long)
+        token_type_ids = torch.tensor(token_type_ids, dtype=torch.long)
+        mask = torch.tensor(mask, dtype=torch.long)
+        subject_target_ids = torch.tensor(subject_target_ids, dtype=torch.float).unsqueeze(-1)
+        decorate_target_ids = torch.tensor(decorate_target_ids, dtype=torch.float).unsqueeze(-1)
+        freq_target_ids = torch.tensor(freq_target_ids, dtype=torch.float).unsqueeze(-1)
+
+        data.update({
             'input_ids': get_cuda(input_ids),
-            'mask': get_cuda(mask),
             'token_type_ids': get_cuda(token_type_ids),
+            'mask': get_cuda(mask),
             'subject_target_ids': get_cuda(subject_target_ids),
-            'body_target_ids': get_cuda(body_target_ids),
-            'text_offsets': text_offsets,
-            'raw_text': raw_text,
-            'symptom_name': symptom_name
-        }
+            'decorate_target_ids': get_cuda(decorate_target_ids),
+            'freq_target_ids': get_cuda(freq_target_ids),
+            'offsets': offsets
+        })
+
+        return data
 
     def __len__(self):
         return len(self.data)
