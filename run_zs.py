@@ -117,7 +117,7 @@ def train(opt, isbody=False):
         avg_train_loss = train_loss * 1000 / len(train_ds)
         print('train loss per example: {:5.3f} / 1000'.format(avg_train_loss))
 
-        avg_val_loss = test(model, dev_ds, dev_dl, criterion, threshold, 'val')
+        avg_val_loss = test(model, dev_ds, dev_dl, criterion, threshold, 'val', isbody=isbody)
 
         # 保留最佳模型方便evaluation
         if isbody:

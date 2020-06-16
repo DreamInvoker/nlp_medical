@@ -261,7 +261,7 @@ def test(model, ds, loader, criterion, threshold=0.5, name='val', isbody=False):
                     token_metrics(decorate_logits, decorate_target_ids, threshold=threshold, mask=mask))
                 freq_metrics_list.append(token_metrics(freq_logits, freq_target_ids, threshold=threshold, mask=mask))
 
-                batch_size_list.append(batch_size)
+            batch_size_list.append(batch_size)
 
             test_loss += loss.item() * batch_size
 
