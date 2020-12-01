@@ -1,10 +1,19 @@
 # statistic
 
-| data      | number     | percentage     |
-| ---------- | :-----------:  | :-----------: |
-| train     | 4227     | 78.7%     |
-| dev     | 318     | 5.9%     |
-| test     | 824     | 15.3%     |
+| data      | # passage    | # no problem symptoms | total feature
+| ---------- | :-----------:  | :-----------: | :-----------: |
+| train     | 4227 (78.7%)     |  17268 (79.7%)   | -     |
+| dev     | 318 (5.9%)    |      1167 (5.4%)    |-     |
+| test     | 824  (15.3%)   |    3218 (14.9%)    |-     |
+
+# manually process attributes with wrong label
+
+| data      | number    | pos number | percentage     | is solved |
+| ---------- | :-----------:  | :-----------:  | :-----------: | :-----------: |
+| train     | 472     | 148|  -  | no |
+| dev     | 27     |  0|  -  | yes
+| test     | 186     |  85 | -    | no |
+
 
 # format
 ```
